@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	amdAccelerator "github.com/project-ai-services/ai-services/internal/pkg/accelerator/amd"
 	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 )
 
@@ -35,9 +36,16 @@ func (p *PodmanBootstrap) Configure(ctx context.Context) error {
 		return err
 	}
 
-	// 3. Spyre cards – validate and repair spyre configurations
-	if err := ensureSpyreConfigured(ctx); err != nil {
-		return err
+	// 3. Accelerator setup — Spyre or AMD GPU (mutually exclusive paths).
+	if amdAccelerator.IsApplicable() {
+		logger.Infoln("AMD GPU detected, skipping Spyre configuration")
+		if err := ensureAMDConfigured(ctx); err != nil {
+			return err
+		}
+	} else {
+		if err := ensureSpyreConfigured(ctx); err != nil {
+			return err
+		}
 	}
 
 	// 4. Configure ulimits (memlock and nofile)
@@ -50,9 +58,12 @@ func (p *PodmanBootstrap) Configure(ctx context.Context) error {
 		return err
 	}
 
-	// 6. Configure SMT level to 2 and persist via systemd
-	if err := ensureSMTConfigured(ctx); err != nil {
-		return err
+	// 6. Configure SMT level to 2 and persist via systemd.
+	// Skip for AMD GPU systems — SMT tuning for AMD is under investigation.
+	if !amdAccelerator.IsApplicable() {
+		if err := ensureSMTConfigured(ctx); err != nil {
+			return err
+		}
 	}
 
 	// 7. Configure SELinux policy for Podman socket access

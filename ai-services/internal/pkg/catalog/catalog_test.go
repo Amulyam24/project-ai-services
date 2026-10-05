@@ -190,6 +190,12 @@ func TestLoadComponent(t *testing.T) {
 			wantErr:       false,
 		},
 		{
+			name:          "Load vllm-amd llm component",
+			componentType: "llm",
+			componentID:   "vllm-amd",
+			wantErr:       false,
+		},
+		{
 			name:          "Load non-existent component",
 			componentType: "unknown",
 			componentID:   "non-existent-component",

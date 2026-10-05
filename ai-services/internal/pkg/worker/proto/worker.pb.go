@@ -84,6 +84,8 @@ const (
 	CommandType_COMMAND_TYPE_CANCEL CommandType = 37
 	// Delete all Kubernetes secrets matching a label selector on an OpenShift worker.
 	CommandType_COMMAND_TYPE_DELETE_SECRETS CommandType = 38
+	// Discover free AMD GPU devices on the worker host.
+	CommandType_COMMAND_TYPE_FIND_FREE_AMD_DEVICES CommandType = 39
 )
 
 // Enum value maps for CommandType.
@@ -128,6 +130,7 @@ var (
 		36: "COMMAND_TYPE_UPDATE_SECRET",
 		37: "COMMAND_TYPE_CANCEL",
 		38: "COMMAND_TYPE_DELETE_SECRETS",
+		39: "COMMAND_TYPE_FIND_FREE_AMD_DEVICES",
 	}
 	CommandType_value = map[string]int32{
 		"COMMAND_TYPE_UNSPECIFIED":            0,
@@ -169,6 +172,7 @@ var (
 		"COMMAND_TYPE_UPDATE_SECRET":          36,
 		"COMMAND_TYPE_CANCEL":                 37,
 		"COMMAND_TYPE_DELETE_SECRETS":         38,
+		"COMMAND_TYPE_FIND_FREE_AMD_DEVICES":  39,
 	}
 )
 

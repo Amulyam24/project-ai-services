@@ -416,6 +416,11 @@ func handle(ctx context.Context, rt runtime.Runtime, pr *workercaddy.ProxyRouter
 
 		return marshalOr(cards, err)
 
+	case workerpb.CommandType_COMMAND_TYPE_FIND_FREE_AMD_DEVICES:
+		devices, err := helpers.FindFreeAMDDevices(ctx)
+
+		return marshalOr(devices, err)
+
 	case workerpb.CommandType_COMMAND_TYPE_GET_BASE_DIR:
 		return marshalOr(utils.GetBaseDir(), nil)
 

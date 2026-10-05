@@ -22,6 +22,7 @@ import (
 	"github.com/containers/podman/v5/pkg/bindings/volumes"
 	"github.com/containers/podman/v5/pkg/domain/entities"
 	"github.com/containers/podman/v5/pkg/specgen"
+	amd "github.com/project-ai-services/ai-services/internal/pkg/accelerator/amd"
 	"github.com/project-ai-services/ai-services/internal/pkg/accelerator/spyre"
 	"github.com/project-ai-services/ai-services/internal/pkg/constants"
 	"github.com/project-ai-services/ai-services/internal/pkg/logger"
@@ -679,40 +680,40 @@ func (pc *PodmanClient) GetSystemInfo(ctx context.Context) (*models.SystemInfo, 
 }
 
 // getAcceleratorInfo retrieves accelerator availability information for Podman.
+// It reports both Spyre cards and AMD GPUs if present.
 func getAcceleratorInfo(ctx context.Context) map[string]*models.AcceleratorInfo {
 	accelerators := make(map[string]*models.AcceleratorInfo)
 
-	// Get total Spyre cards
+	// --- Spyre cards ---
 	totalCards, err := spyre.ListCards(ctx)
 	if err != nil {
 		logger.ErrorfCtx(ctx, "Could not list Spyre cards: %v", err)
-		// Return empty map when error occurs
-		return accelerators
-	}
-
-	totalCount := len(totalCards)
-	if totalCount == 0 {
-		// Return empty map when no Spyre cards found
-		return accelerators
-	}
-
-	// Get available Spyre cards
-	availableCards, err := spyre.FindFreeCards(ctx)
-	if err != nil {
-		logger.ErrorfCtx(ctx, "Could not find available Spyre cards: %v", err)
-		accelerators[constants.SpyreResourceName] = &models.AcceleratorInfo{
-			Total:     totalCount,
-			Available: 0,
+	} else if totalCount := len(totalCards); totalCount > 0 {
+		availableCards, err := spyre.FindFreeCards(ctx)
+		if err != nil {
+			logger.ErrorfCtx(ctx, "Could not find available Spyre cards: %v", err)
+			accelerators[constants.SpyreResourceName] = &models.AcceleratorInfo{
+				Total:     totalCount,
+				Available: 0,
+			}
+		} else {
+			accelerators[constants.SpyreResourceName] = &models.AcceleratorInfo{
+				Total:     totalCount,
+				Available: len(availableCards),
+			}
 		}
-
-		return accelerators
 	}
 
-	availableCount := len(availableCards)
-
-	accelerators[constants.SpyreResourceName] = &models.AcceleratorInfo{
-		Total:     totalCount,
-		Available: availableCount,
+	// --- AMD GPUs ---
+	amdDevices, err := amd.ListDevices(ctx)
+	if err != nil {
+		logger.ErrorfCtx(ctx, "Could not list AMD GPU devices: %v", err)
+	} else if total := len(amdDevices); total > 0 {
+		// All detected AMD GPUs are considered available (no VFIO-style locking).
+		accelerators[constants.AMDResourceName] = &models.AcceleratorInfo{
+			Total:     total,
+			Available: total,
+		}
 	}
 
 	return accelerators

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	amdAccelerator "github.com/project-ai-services/ai-services/internal/pkg/accelerator/amd"
 	"github.com/project-ai-services/ai-services/internal/pkg/constants"
 	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/project-ai-services/ai-services/internal/pkg/runtime/types"
@@ -55,10 +56,15 @@ func (p *BootstrapFactory) Validate(ctx context.Context, skip map[string]bool) e
 }
 
 // GetRulesForRuntime returns the appropriate validation rules based on the runtime type.
+// For Podman, it selects AMDRegistry when AMD GPUs are detected, otherwise PodmanRegistry (Spyre).
 func GetRulesForRuntime() []validators.Rule {
 	rt := vars.RuntimeFactory.GetRuntimeType()
 	switch rt {
 	case types.RuntimeTypePodman:
+		if amdAccelerator.IsApplicable() {
+			return validators.AMDRegistry.Rules()
+		}
+
 		return validators.PodmanRegistry.Rules()
 	case types.RuntimeTypeOpenShift:
 		return validators.OpenshiftRegistry.Rules()

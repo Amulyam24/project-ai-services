@@ -143,4 +143,8 @@ enum CommandType {
 
   // Delete all Kubernetes secrets matching a label selector on an OpenShift worker.
   COMMAND_TYPE_DELETE_SECRETS            = 38;
+
+  // Discover free AMD GPU devices on the worker host.
+  // The worker checks /dev/kfd and enumerates GPUs via lspci (vendor 1002:).
+  COMMAND_TYPE_FIND_FREE_AMD_DEVICES     = 39;
 }

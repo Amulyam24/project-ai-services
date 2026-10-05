@@ -16,4 +16,7 @@ const (
 const (
 	// SpyreResourceName is the Kubernetes extended resource name advertised by the Spyre device plugin.
 	SpyreResourceName = "ibm.com/spyre_pf"
+
+	// AMDResourceName is the resource key used to report AMD GPU accelerators in system info.
+	AMDResourceName = "amd.com/gpu"
 )

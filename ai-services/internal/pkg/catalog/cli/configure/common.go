@@ -17,4 +17,8 @@ const (
 	ArgParamCaddyFileContent      = "caddy.caddyFileContent"
 	ArgParamSSLCertFileContent    = "caddy.sslCertContent"
 	ArgParamSSLKeyFileContent     = "caddy.sslKeyContent"
+	// ArgParamSpyreEnabled controls whether the catalog backend requests
+	// /dev/vfio devices and mounts /sys/kernel/iommu_groups. Set to "false"
+	// on AMD GPU hosts where VFIO is absent.
+	ArgParamSpyreEnabled = "backend.spyreEnabled"
 )

@@ -424,6 +424,21 @@ func (r *RemoteRuntime) FindFreeSpyreCards(ctx context.Context) ([]string, error
 	return cards, nil
 }
 
+// FindFreeAMDDevices returns AMD GPU PCI addresses discovered on the worker host.
+func (r *RemoteRuntime) FindFreeAMDDevices(ctx context.Context) ([]string, error) {
+	res, err := r.send(ctx, workerpb.CommandType_COMMAND_TYPE_FIND_FREE_AMD_DEVICES, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var devices []string
+	if err := unmarshalData(res, &devices); err != nil {
+		return nil, err
+	}
+
+	return devices, nil
+}
+
 // GetBaseDir returns the AI services base directory configured on the worker host.
 func (r *RemoteRuntime) GetBaseDir(ctx context.Context) (string, error) {
 	res, err := r.send(ctx, workerpb.CommandType_COMMAND_TYPE_GET_BASE_DIR, nil)

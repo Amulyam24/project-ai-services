@@ -15,6 +15,9 @@ backend:
   workerGatewayPort: "9191"
   # localWorker: when "true" the catalog-backend self-preregisters as the Local worker on startup.
   localWorker: "true"
+  # spyreEnabled: when "true" the catalog backend requests /dev/vfio devices and
+  # mounts /sys/kernel/iommu_groups. Set to "false" on AMD GPU hosts (no VFIO needed).
+  spyreEnabled: "true"
   podman:
     uri: "/run/podman/podman.sock"
     authFileContent: ""

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	amdAccelerator "github.com/project-ai-services/ai-services/internal/pkg/accelerator/amd"
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog/cli/common/podman/caddy"
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog/cli/common/podman/deploy"
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog/cli/configure"
@@ -287,6 +288,7 @@ func generateArgParams(passwordHash, sslCertPath, sslKeyPath string, useExisting
 	argParams[constants.ArgParamCaddyFileContent] = utils.IndentString(caddyFileContent, utils.CaddyFileIndent)
 	argParams[constants.ArgParamSSLCertFileContent] = utils.IndentString(sslCertContent, utils.CertContentIndent)
 	argParams[constants.ArgParamSSLKeyFileContent] = utils.IndentString(sslKeyContent, utils.CertContentIndent)
+	argParams[configure.ArgParamSpyreEnabled] = strconv.FormatBool(!amdAccelerator.IsApplicable())
 
 	return argParams, nil
 }

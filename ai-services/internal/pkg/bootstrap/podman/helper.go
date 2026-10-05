@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	amdAccelerator "github.com/project-ai-services/ai-services/internal/pkg/accelerator/amd"
 	"github.com/project-ai-services/ai-services/internal/pkg/bootstrap/spyreconfig/check"
 	"github.com/project-ai-services/ai-services/internal/pkg/bootstrap/spyreconfig/spyre"
 	"github.com/project-ai-services/ai-services/internal/pkg/bootstrap/spyreconfig/utils"
@@ -740,6 +741,29 @@ func ensureSELinuxPolicyConfigured(ctx context.Context) error {
 		return err
 	}
 	s.Stop("SELinux Podman socket policy configured successfully")
+
+	return nil
+}
+
+// ensureAMDConfigured validates AMD GPU device availability.
+func ensureAMDConfigured(ctx context.Context) error {
+	s := spinner.New("Checking AMD GPU configuration")
+	s.Start(ctx)
+
+	devices, err := amdAccelerator.ListDevices(ctx)
+	if err != nil {
+		s.Fail("failed to detect AMD GPU devices")
+
+		return err
+	}
+
+	if len(devices) == 0 {
+		s.Fail("no AMD GPU devices found")
+
+		return fmt.Errorf("no AMD GPU devices detected via lspci (vendor 1002:)")
+	}
+
+	s.Stop(fmt.Sprintf("AMD GPU configuration validated: %d device(s) detected", len(devices)))
 
 	return nil
 }

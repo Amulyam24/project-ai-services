@@ -743,3 +743,4 @@ func ensureSELinuxPolicyConfigured(ctx context.Context) error {
 
 	return nil
 }
+

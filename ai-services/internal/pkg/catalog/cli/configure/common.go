@@ -17,4 +17,7 @@ const (
 	ArgParamCaddyFileContent      = "caddy.caddyFileContent"
 	ArgParamSSLCertFileContent    = "caddy.sslCertContent"
 	ArgParamSSLKeyFileContent     = "caddy.sslKeyContent"
+	// ArgParamAcceleratorType identifies the accelerator in use on this host.
+	// "spyre" requests /dev/vfio devices; "amdgpu" skips the vfio resource request.
+	ArgParamAcceleratorType = "backend.acceleratorType"
 )

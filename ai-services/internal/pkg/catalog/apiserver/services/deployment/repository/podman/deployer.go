@@ -1081,7 +1081,8 @@ func joinPCIAddresses(addrs []string) string {
 	return strings.Join(addrs, " ")
 }
 
-// getEnvParamsForComponent returns environment parameters for a component including Spyre card PCI addresses.
+// getEnvParamsForComponent returns environment parameters for a component including
+// Spyre card PCI addresses and AMD GPU PCI addresses.
 func (d *PodmanDeployer) getEnvParamsForComponent(ctx context.Context, podSpec *podmodels.PodSpec, plan *DeploymentPlan) (map[string]map[string]string, error) {
 	env := make(map[string]map[string]string)
 
@@ -1096,34 +1097,101 @@ func (d *PodmanDeployer) getEnvParamsForComponent(ctx context.Context, podSpec *
 		return env, err
 	}
 
-	if spyreCards == 0 {
-		return env, nil
-	}
-
-	if plan.SpyreCardPool == nil {
-		return env, fmt.Errorf("spyre cards required but pool was not populated during planning")
-	}
-
-	// Allocate PCI addresses to containers that need them
-	for containerName, spyreCount := range spyreCardContainerMap {
-		if spyreCount == 0 {
-			continue
+	if spyreCards > 0 {
+		if plan.SpyreCardPool == nil {
+			return env, fmt.Errorf("spyre cards required but pool was not populated during planning")
 		}
 
-		// Allocate addresses from the pool (thread-safe)
-		allocatedAddresses, err := plan.SpyreCardPool.Allocate(spyreCount)
-		if err != nil {
-			return env, fmt.Errorf("failed to allocate Spyre cards for container %s: %w", containerName, err)
+		// Allocate PCI addresses to containers that need them
+		for containerName, spyreCount := range spyreCardContainerMap {
+			if spyreCount == 0 {
+				continue
+			}
+
+			// Allocate addresses from the pool (thread-safe)
+			allocatedAddresses, err := plan.SpyreCardPool.Allocate(spyreCount)
+			if err != nil {
+				return env, fmt.Errorf("failed to allocate Spyre cards for container %s: %w", containerName, err)
+			}
+
+			pciAddressStr := joinPCIAddresses(allocatedAddresses)
+			if env[containerName] == nil {
+				env[containerName] = make(map[string]string)
+			}
+			env[containerName][string(constants.PCIAddressKey)] = pciAddressStr
+
+			logger.DebugfCtx(ctx, "Allocated %d Spyre cards to container '%s' in pod '%s': %s\n",
+				spyreCount, containerName, podSpec.Name, pciAddressStr)
 		}
+	}
 
-		pciAddressStr := joinPCIAddresses(allocatedAddresses)
-		env[containerName][string(constants.PCIAddressKey)] = pciAddressStr
-
-		logger.DebugfCtx(ctx, "Allocated %d Spyre cards to container '%s' in pod '%s': %s\n",
-			spyreCount, containerName, podSpec.Name, pciAddressStr)
+	// Allocate AMD GPU device ordinals for containers that requested them.
+	if err := d.allocateAMDGPUsForPod(ctx, podSpec, plan, env); err != nil {
+		return env, err
 	}
 
 	return env, nil
+}
+
+// allocateAMDGPUsForPod reads ai-services.io/<container>--amd-gpus annotations from
+// the rendered pod spec, allocates device ordinals from the plan's AMDGPUPool, and
+// injects them as ROCR_VISIBLE_DEVICES into the per-container env map.
+func (d *PodmanDeployer) allocateAMDGPUsForPod(ctx context.Context, podSpec *podmodels.PodSpec, plan *DeploymentPlan, env map[string]map[string]string) error {
+	isAMDGPUAnnotation := func(annotation string) (string, bool) {
+		matches := vars.AMDGPUAnnotationRegex.FindStringSubmatch(annotation)
+		if matches == nil {
+			return "", false
+		}
+
+		return matches[1], true
+	}
+
+	gpuContainerMap := map[string]int{}
+	totalGPUs := 0
+
+	for annotationKey, val := range podSpec.Annotations {
+		if containerName, ok := isAMDGPUAnnotation(annotationKey); ok {
+			valInt, err := strconv.Atoi(val)
+			if err != nil {
+				return fmt.Errorf("failed to convert AMD GPU annotation value to int: %s is not an int", val)
+			}
+
+			gpuContainerMap[containerName] = valInt
+			totalGPUs += valInt
+		}
+	}
+
+	if totalGPUs == 0 {
+		return nil
+	}
+
+	if plan.AMDGPUPool == nil {
+		return fmt.Errorf("AMD GPU devices required but pool was not populated during planning")
+	}
+
+	for containerName, gpuCount := range gpuContainerMap {
+		if gpuCount == 0 {
+			continue
+		}
+
+		allocatedAddresses, err := plan.AMDGPUPool.Allocate(gpuCount)
+		if err != nil {
+			return fmt.Errorf("failed to allocate AMD GPU devices for container %s: %w", containerName, err)
+		}
+
+		rocrDevices := strings.Join(allocatedAddresses, ",")
+
+		if env[containerName] == nil {
+			env[containerName] = make(map[string]string)
+		}
+
+		env[containerName][string(constants.ROCRVisibleDevicesKey)] = rocrDevices
+
+		logger.DebugfCtx(ctx, "Allocated %d AMD GPU devices to container '%s' in pod '%s': %s\n",
+			gpuCount, containerName, podSpec.Name, rocrDevices)
+	}
+
+	return nil
 }
 
 // getBaseDir returns the base directory for deployment artifacts.

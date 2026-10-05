@@ -10,6 +10,7 @@ import (
 	ttemplate "text/template"
 
 	"github.com/project-ai-services/ai-services/assets"
+	"github.com/project-ai-services/ai-services/internal/pkg/accelerator/amdgpu"
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog/cli/common/podman/caddy"
 	"github.com/project-ai-services/ai-services/internal/pkg/cli/helpers"
 	clipodman "github.com/project-ai-services/ai-services/internal/pkg/cli/podman"
@@ -287,15 +288,21 @@ func buildArgParams(opts workertypes.PodmanWorkerOptions) (map[string]string, er
 		return nil, fmt.Errorf("failed to read Caddyfile: %w", err)
 	}
 
+	acceleratorType := "spyre"
+	if amdgpu.IsApplicable() {
+		acceleratorType = "amdgpu"
+	}
+
 	return map[string]string{
-		constants.ArgParamCaddyHTTPSPort:          strconv.Itoa(opts.Setup.HTTPSPort),
-		constants.ArgParamCaddyFileContent:        utils.IndentString(caddyFileContent, utils.CaddyFileIndent),
-		constants.ArgParamSSLCertFileContent:      utils.IndentString(sslCertContent, utils.CertContentIndent),
-		constants.ArgParamSSLKeyFileContent:       utils.IndentString(sslKeyContent, utils.CertContentIndent),
-		workerconstants.ArgParamWorkerToken:       opts.Token,
-		workerconstants.ArgParamWorkerGatewayAddr: opts.GatewayAddr,
-		workerconstants.ArgParamWorkerPodmanURI:   strings.TrimPrefix(podmanURI, "unix://"),
-		workerconstants.ArgParamWorkerAuthFile:    authFileBase64,
+		constants.ArgParamCaddyHTTPSPort:               strconv.Itoa(opts.Setup.HTTPSPort),
+		constants.ArgParamCaddyFileContent:             utils.IndentString(caddyFileContent, utils.CaddyFileIndent),
+		constants.ArgParamSSLCertFileContent:           utils.IndentString(sslCertContent, utils.CertContentIndent),
+		constants.ArgParamSSLKeyFileContent:            utils.IndentString(sslKeyContent, utils.CertContentIndent),
+		workerconstants.ArgParamWorkerToken:            opts.Token,
+		workerconstants.ArgParamWorkerGatewayAddr:      opts.GatewayAddr,
+		workerconstants.ArgParamWorkerPodmanURI:        strings.TrimPrefix(podmanURI, "unix://"),
+		workerconstants.ArgParamWorkerAuthFile:         authFileBase64,
+		workerconstants.ArgParamWorkerAcceleratorType:  acceleratorType,
 	}, nil
 }
 

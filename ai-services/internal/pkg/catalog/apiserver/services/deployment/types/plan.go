@@ -18,6 +18,7 @@ type DeploymentPlan struct {
 	Components      map[string]*ComponentPlan // Key: component hash, Value: component plan
 	Services        map[string]*ServicePlan   // Key: service ID, Value: service plan
 	SpyreCardPool   *SpyreCardPool            // Allocated Spyre card pool (set after allocation)
+	AMDGPUPool      *AMDGPUPool               // Allocated AMD GPU device ordinal pool (set after allocation)
 	// WorkerName identifies the target worker. Always set by PlanDeployment:
 	// workerconstants.LocalWorkerName for local deployments, or the actual
 	// worker name for remote ones.
@@ -86,6 +87,38 @@ type ErrInsufficientSpyreCards struct {
 
 func (e ErrInsufficientSpyreCards) Error() string {
 	return fmt.Sprintf("insufficient Spyre cards in pool: need %d, have %d", e.Need, e.Have)
+}
+
+// AMDGPUPool manages allocation of AMD GPU device ordinals (valid ROCR_VISIBLE_DEVICES values) to components.
+type AMDGPUPool struct {
+	Addresses []string
+	mutex     sync.Mutex
+}
+
+// Allocate takes n device ordinals from the pool and returns them.
+func (p *AMDGPUPool) Allocate(n int) ([]string, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if len(p.Addresses) < n {
+		return nil, ErrInsufficientAMDGPUs{Need: n, Have: len(p.Addresses)}
+	}
+
+	allocated := make([]string, n)
+	copy(allocated, p.Addresses[:n])
+	p.Addresses = p.Addresses[n:]
+
+	return allocated, nil
+}
+
+// ErrInsufficientAMDGPUs is returned when there are not enough AMD GPU devices available.
+type ErrInsufficientAMDGPUs struct {
+	Need int
+	Have int
+}
+
+func (e ErrInsufficientAMDGPUs) Error() string {
+	return fmt.Sprintf("insufficient AMD GPU devices in pool: need %d, have %d", e.Need, e.Have)
 }
 
 // Made with Bob

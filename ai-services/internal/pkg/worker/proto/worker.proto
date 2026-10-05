@@ -143,4 +143,9 @@ enum CommandType {
 
   // Delete all Kubernetes secrets matching a label selector on an OpenShift worker.
   COMMAND_TYPE_DELETE_SECRETS            = 38;
+
+  // Discover free AMD GPU devices on the worker host.
+  // The worker calls rocm-smi --showbus to map GPU indices to PCI addresses, then
+  // rocm-smi to check VRAM% per GPU; only GPUs with VRAM% == 0 are returned.
+  COMMAND_TYPE_FIND_FREE_AMD_GPU_DEVICES = 39;
 }

@@ -293,8 +293,12 @@ func (v *ApplicationValidator) ValidateSingleComponent(ctx context.Context, comp
 		return err
 	}
 
-	// Validate component parameters
-	return v.ValidateComponentParams(ctx, component.ComponentType, component.ProviderID, component.Params)
+	// Validate component parameters against schema
+	if err := v.ValidateComponentParams(ctx, component.ComponentType, component.ProviderID, component.Params); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ValidateServiceDeployment validates a single service deployment request.

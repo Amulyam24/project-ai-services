@@ -5,6 +5,9 @@ worker:
   gatewayAddr: ""
   # @generate:password length=32, special=false
   mtlsEncryptionKey: ""
+  # acceleratorType: identifies the accelerator in use on this host.
+  # "spyre" mounts /dev/vfio and /sys/kernel/iommu_groups; "amdgpu" mounts /sys/class/drm.
+  acceleratorType: "spyre"
   podman:
     uri: "/run/podman/podman.sock"
     authFileContent: ""

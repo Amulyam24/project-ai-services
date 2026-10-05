@@ -1,0 +1,8 @@
+# TODO: replace with a project-owned semver-pinned image once the build pipeline is in place.
+# Tracking: https://github.com/project-ai-services/project-ai-services/issues/TBD
+image: icr.io/ppc64le-oss/vllm-rocm-ppc64le:latest
+model: "ibm-granite/granite-4.1-8b"
+apiKey: ""
+tensorParallelSize: 1
+maxModelLen: 32768
+maxBatchSize: 32

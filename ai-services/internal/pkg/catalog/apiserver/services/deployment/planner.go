@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog"
+	"github.com/project-ai-services/ai-services/internal/pkg/constants"
 	apimodels "github.com/project-ai-services/ai-services/internal/pkg/catalog/apiserver/models"
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog/apiserver/services/deployment/types"
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog/apiserver/services/params"
@@ -149,6 +150,10 @@ func (p *DeploymentPlanner) PlanDeployment(
 	if plan.RuntimeType == runtimeTypes.RuntimeTypePodman.String() {
 		if err := p.calculateAndAllocateSpyreCards(ctx, plan, workerName); err != nil {
 			return nil, fmt.Errorf("failed to allocate Spyre cards: %w", err)
+		}
+
+		if err := p.calculateAndAllocateAMDGPUDevices(ctx, plan, workerName); err != nil {
+			return nil, fmt.Errorf("failed to allocate AMD GPU devices: %w", err)
 		}
 	}
 
@@ -341,6 +346,96 @@ func (p *DeploymentPlanner) getRequiredSpyreCardsForComponent(ctx context.Contex
 	}
 
 	return totalSpyreCards, nil
+}
+
+// calculateAndAllocateAMDGPUDevices calculates required AMD GPU devices and creates allocation pool.
+// workerName is used to determine whether to probe locally or over gRPC to a remote worker.
+func (p *DeploymentPlanner) calculateAndAllocateAMDGPUDevices(ctx context.Context, plan *DeploymentPlan, workerName string) error {
+	totalRequired := 0
+
+	// Sum up AMD GPUs required across all vllm-rocm components.
+	for _, comp := range plan.Components {
+		if comp.ProviderID != constants.AMDGPUProviderID {
+			continue
+		}
+
+		required := getRequiredAMDGPUsForComponent(comp)
+		if required > 0 {
+			logger.InfofCtx(ctx, "Component %s/%s requires %d AMD GPU devices\n", comp.ComponentType, comp.ProviderID, required)
+		}
+
+		totalRequired += required
+	}
+
+	if totalRequired == 0 {
+		logger.InfofCtx(ctx, "No AMD GPU devices required for this deployment\n")
+
+		return nil
+	}
+
+	logger.InfofCtx(ctx, "Total AMD GPU devices required: %d\n", totalRequired)
+
+	// Find available AMD GPU device ordinals via the worker pod over gRPC.
+	pciAddresses, err := p.findFreeAMDGPUDevices(ctx, workerName)
+	if err != nil {
+		return fmt.Errorf("failed to find free AMD GPU devices: %w", err)
+	}
+
+	availableCount := len(pciAddresses)
+	logger.InfofCtx(ctx, "Available AMD GPU devices: %d\n", availableCount)
+
+	if availableCount < totalRequired {
+		return fmt.Errorf("insufficient AMD GPU devices: required %d, available %d", totalRequired, availableCount)
+	}
+
+	// Create pool with available addresses and store in plan.
+	plan.AMDGPUPool = &types.AMDGPUPool{
+		Addresses: pciAddresses,
+	}
+
+	return nil
+}
+
+// findFreeAMDGPUDevices sends FIND_FREE_AMD_GPU_DEVICES over the gRPC stream to the
+// named worker pod (local or remote) so the worker host checks sysfs for idle GPUs —
+// the API server never touches hardware directly.
+func (p *DeploymentPlanner) findFreeAMDGPUDevices(ctx context.Context, workerName string) ([]string, error) {
+	rt, err := runtime.NewRuntimeFactory(runtimeTypes.RuntimeType(p.runtimeType)).CreateRemote(workerName, p.workerRegistry, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create remote runtime for worker %q: %w", workerName, err)
+	}
+
+	remoteRT, ok := rt.(*remoteruntime.RemoteRuntime)
+	if !ok {
+		return nil, fmt.Errorf("unexpected runtime type for worker %q", workerName)
+	}
+
+	return remoteRT.FindFreeAMDGPUDevices(ctx)
+}
+
+// getRequiredAMDGPUsForComponent reads tensorParallelSize from a component's values
+// or params and returns it as the number of GPUs needed.
+func getRequiredAMDGPUsForComponent(comp *ComponentPlan) int {
+	// Prefer resolved values (includes defaults from values.yaml) over raw params.
+	for _, src := range []map[string]any{comp.Values, comp.Params} {
+		if src == nil {
+			continue
+		}
+
+		tps, ok := src["tensorParallelSize"]
+		if !ok {
+			continue
+		}
+
+		switch v := tps.(type) {
+		case float64:
+			return int(v)
+		case int:
+			return v
+		}
+	}
+
+	return 0
 }
 
 // WorkerDBID returns the database UUID for the named worker by consulting the

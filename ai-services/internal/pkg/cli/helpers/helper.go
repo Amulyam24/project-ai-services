@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/project-ai-services/ai-services/internal/pkg/accelerator/amdgpu"
 	"github.com/project-ai-services/ai-services/internal/pkg/accelerator/spyre"
 	"github.com/project-ai-services/ai-services/internal/pkg/constants"
 	"github.com/project-ai-services/ai-services/internal/pkg/logger"
@@ -125,6 +126,11 @@ func ListSpyreCards(ctx context.Context) ([]string, error) {
 // This is a wrapper around spyre.FindFreeCards for backward compatibility.
 func FindFreeSpyreCards(ctx context.Context) ([]string, error) {
 	return spyre.FindFreeCards(ctx)
+}
+
+// FindFreeAMDGPUDevices returns AMD GPU PCI addresses discovered on the host.
+func FindFreeAMDGPUDevices(ctx context.Context) ([]string, error) {
+	return amdgpu.ListDevices(ctx)
 }
 
 func ParseSkipChecks(skipChecks []string) map[string]bool {

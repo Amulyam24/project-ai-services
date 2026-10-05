@@ -15,6 +15,9 @@ backend:
   workerGatewayPort: "9191"
   # localWorker: when "true" the catalog-backend self-preregisters as the Local worker on startup.
   localWorker: "true"
+  # acceleratorType: identifies the accelerator in use on this host.
+  # "spyre" requests /dev/vfio devices; "amdgpu" skips the vfio resource request.
+  acceleratorType: "spyre"
   podman:
     uri: "/run/podman/podman.sock"
     authFileContent: ""

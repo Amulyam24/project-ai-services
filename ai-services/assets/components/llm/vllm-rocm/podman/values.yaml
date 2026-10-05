@@ -1,0 +1,6 @@
+image: quay.io/ameka/vllm-rocm-ppc64le:latest
+model: "ibm-granite/granite-4.1-8b"
+apiKey: ""
+tensorParallelSize: 2
+maxModelLen: 32768
+maxBatchSize: 32

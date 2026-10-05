@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/project-ai-services/ai-services/internal/pkg/accelerator/amdgpu"
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog"
 	apimodels "github.com/project-ai-services/ai-services/internal/pkg/catalog/apiserver/models"
 	catalogconstants "github.com/project-ai-services/ai-services/internal/pkg/catalog/constants"
@@ -18,6 +19,9 @@ import (
 	"github.com/project-ai-services/ai-services/internal/pkg/catalog/utils"
 	pkgutils "github.com/project-ai-services/ai-services/internal/pkg/utils"
 )
+
+// amdgpuProviderID is the provider ID for AMD GPU vLLM components.
+const amdgpuProviderID = "vllm-rocm"
 
 // ValidationError represents a validation error with HTTP status code.
 type ValidationError struct {
@@ -292,8 +296,59 @@ func (v *ApplicationValidator) ValidateSingleComponent(ctx context.Context, comp
 		return err
 	}
 
-	// Validate component parameters
-	return v.ValidateComponentParams(ctx, component.ComponentType, component.ProviderID, component.Params)
+	// Validate component parameters against schema
+	if err := v.ValidateComponentParams(ctx, component.ComponentType, component.ProviderID, component.Params); err != nil {
+		return err
+	}
+
+	// For AMD components, validate tensorParallelSize does not exceed available GPU count.
+	if component.ProviderID == amdgpuProviderID {
+		if err := validateAMDGPUTensorParallelSize(ctx, component.Params); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateAMDGPUTensorParallelSize checks that the requested tensorParallelSize
+// does not exceed the number of AMD GPU devices detected on the host.
+func validateAMDGPUTensorParallelSize(ctx context.Context, params map[string]any) error {
+	tps, ok := params["tensorParallelSize"]
+	if !ok {
+		return nil
+	}
+
+	// params values may be float64 when decoded from JSON.
+	var requested int
+	switch v := tps.(type) {
+	case float64:
+		requested = int(v)
+	case int:
+		requested = v
+	default:
+		return nil
+	}
+
+	devices, err := amdgpu.ListDevices(ctx)
+	if err != nil {
+		return &ValidationError{
+			Code:    http.StatusInternalServerError,
+			Message: fmt.Sprintf("failed to enumerate AMD GPU devices: %v", err),
+		}
+	}
+
+	if requested > len(devices) {
+		return &ValidationError{
+			Code: http.StatusBadRequest,
+			Message: fmt.Sprintf(
+				"tensorParallelSize %d exceeds available AMD GPU count %d",
+				requested, len(devices),
+			),
+		}
+	}
+
+	return nil
 }
 
 // ValidateServiceDeployment validates a single service deployment request.

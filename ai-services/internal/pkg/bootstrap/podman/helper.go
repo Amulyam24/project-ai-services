@@ -16,6 +16,7 @@ import (
 	"github.com/project-ai-services/ai-services/internal/pkg/logger"
 	"github.com/project-ai-services/ai-services/internal/pkg/spinner"
 	"github.com/project-ai-services/ai-services/internal/pkg/utils/selinux"
+	"github.com/project-ai-services/ai-services/internal/pkg/validators"
 )
 
 // configureSpyre validates and repairs Spyre card configuration.
@@ -740,6 +741,24 @@ func ensureSELinuxPolicyConfigured(ctx context.Context) error {
 		return err
 	}
 	s.Stop("SELinux Podman socket policy configured successfully")
+
+	return nil
+}
+
+// ensureROCmConfigured runs all AMD ROCm pre-flight validation rules.
+func ensureROCmConfigured(ctx context.Context) error {
+	for _, rule := range validators.ROCmRegistry.Rules() {
+		s := spinner.New("Validating " + rule.Name() + " ...")
+		s.Start(ctx)
+
+		if err := rule.Verify(ctx); err != nil {
+			s.StopWithHint(err.Error(), rule.Hint())
+
+			return fmt.Errorf("%s: %w", rule.Name(), err)
+		}
+
+		s.Stop(rule.Message())
+	}
 
 	return nil
 }
